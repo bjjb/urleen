@@ -20,38 +20,39 @@ import (
 const (
 	alphabet = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 	radix    = len(alphabet)
-	file     = "urls.gz"
 )
 
 var (
-	addr   = ":8080"
-	urls   = []string{}
-	values = map[rune]int{}
-	re     = regexp.MustCompile(fmt.Sprintf(`/[%s]+`, alphabet))
+	file  = "urls.gz"
+	addr  = ":8080"
+	urls  = []string{}
+	quick = map[rune]int{} // maps chars to their position, for efficiency
+	re    = regexp.MustCompile(fmt.Sprintf(`/[%s]+`, alphabet))
 )
 
 func init() {
-	re = regexp.MustCompile(fmt.Sprintf(`/[%s]+`, alphabet))
 	for i, r := range alphabet {
-		values[r] = i
+		quick[r] = i
 	}
 	flag.StringVar(&addr, "a", ":8080", "specify the server address")
-	http.HandleFunc("/", handle)
+	flag.StringVar(&file, "f", "urls.gz", "the file to store the URLs")
 }
 
 func main() {
-	load()
 	flag.Parse()
-	go gracefulExit()
+	load()
+	go saveOnExit()
+	http.HandleFunc("/", handle)
 	if err := http.ListenAndServe(fmt.Sprintf("%s", addr), nil); err != nil {
 		log.Fatal(err)
 	}
 }
 
-func gracefulExit() {
+// listens for SIGINT; when it's received, saves the URL list, and exits
+func saveOnExit() {
 	ch := make(chan os.Signal, 1)
 	signal.Notify(ch, os.Interrupt)
-	<-ch // blocks
+	<-ch // blocks until the signal arrives
 	save()
 	signal.Reset(os.Interrupt)
 	os.Exit(0)
@@ -85,7 +86,7 @@ func decode(s string) uint64 {
 	var n uint64
 	max := len(s) - 1
 	for i, c := range s {
-		n = n + uint64(values[c]*int(math.Pow(float64(radix), float64(max-i))))
+		n = n + uint64(quick[c]*int(math.Pow(float64(radix), float64(max-i))))
 	}
 	return n
 }
@@ -131,7 +132,6 @@ func post(w http.ResponseWriter, r *http.Request) {
 
 func load() {
 	if _, err := os.Stat(file); os.IsNotExist(err) {
-		urls = []string{"https://bjjb.github.io", "https://ddg.gg"}
 		return
 	}
 	f, err := os.Open(file)
