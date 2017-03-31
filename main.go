@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
@@ -21,7 +20,7 @@ var (
 type urlList [][]byte
 
 func init() {
-	flag.StringVar(&bindAddr, "b", ":8080", "address/port to which to bind")
+	flag.StringVar(&bindAddr, "b", ":8089", "address/port to which to bind")
 	flag.StringVar(&webRoot, "w", "www", "directory from which to serve static files")
 	staticHandler = http.FileServer(http.Dir(webRoot))
 }
@@ -39,14 +38,10 @@ func main() {
 func (u *urlList) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case r.Method == http.MethodPost:
-		body, err := ioutil.ReadAll(r.Body)
-		if err != nil {
-			http.Error(w, "error reading body", http.StatusInternalServerError)
-			return
-		}
-		defer func() { _ = r.Body.Close() }()
-		url, err := url.Parse(string(body))
-		if err != nil || url.Host == "" && url.Scheme == "" {
+		r.ParseForm()
+		x := r.Form.Get("url")
+		uri, err := url.Parse(x)
+		if err != nil || uri.Host == "" && uri.Scheme == "" {
 			http.Error(w, "URL is not valid", http.StatusBadRequest)
 			return
 		}
@@ -55,9 +50,10 @@ func (u *urlList) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		id := base62.Encode(uint64(len(*u)))
-		*u = append(*u, body)
+		*u = append(*u, []byte(x))
 		w.WriteHeader(http.StatusCreated)
-		w.Write([]byte(id))
+		location := url.URL{Scheme: r.URL.Scheme, Opaque: r.URL.Opaque, User: r.URL.User, Host: r.URL.Host, Path: id}
+		fmt.Fprintf(w, "%s", location.String())
 	case r.Method == http.MethodGet:
 		if re.MatchString(r.URL.Path) {
 			i := int(base62.Decode(r.URL.Path[1:]))

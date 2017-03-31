@@ -4,14 +4,27 @@
   <meta charset="UTF-8">
   <title>URLín</title>
   <script src="/sw.js"></script>
-  <script src="/js/app.js"></script>
   <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
-  <form action="/" method="POST">
-    <p class="instructions">Type/paste in the URL</p>
-    <input type="url" name="url" placeholder="https://www.example.com">
-    <button type="submit">Squish</button>
-  </form>
+  <header>
+    <h1>URLín</h1>
+  </header>
+  <main>
+    <form action="/" method="POST" enctype="text/html">
+      <label id="url-label" class="instructions" for="url-input">
+        Type/paste in the URL
+      </label>
+      <input type="url" name="url" id="url-input" required autofocus
+        placeholder="https://www.example.com">
+      <button type="submit">Squish</button>
+    </form>
+    <div class="result" hidden>
+    </div>
+  </main>
+  <footer>
+    <p class="copyright">© 2017 JJ Buckley</p>
+  </footer>
+  <script src="/js/app.js"></script>
 </body>
 </html>

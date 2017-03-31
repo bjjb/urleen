@@ -1,9 +1,11 @@
 package main
 
 import (
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"regexp"
 	"strings"
 	"testing"
@@ -12,9 +14,23 @@ import (
 func TestServeHTTP(t *testing.T) {
 	urlList := &urlList{[]byte("http://other.com")}
 
-	w := httptest.NewRecorder()
-	urlList.ServeHTTP(w, httptest.NewRequest("GET", "http://example.com/0", nil))
-	resp := w.Result()
+	post := func(u string) *http.Response {
+		w := httptest.NewRecorder()
+		body := strings.NewReader(url.Values{"url": []string{u}}.Encode())
+		r := httptest.NewRequest("POST", "http://example.com/", body)
+		r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		urlList.ServeHTTP(w, r)
+		return w.Result()
+	}
+
+	get := func(path string) *http.Response {
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest("GET", fmt.Sprintf("http://example.com%s", path), nil)
+		urlList.ServeHTTP(w, r)
+		return w.Result()
+	}
+
+	resp := get("/0")
 	if resp.StatusCode != http.StatusPermanentRedirect {
 		t.Errorf("expected a redirect, got %d (%s)", resp.StatusCode, resp.Status)
 	}
@@ -22,27 +38,21 @@ func TestServeHTTP(t *testing.T) {
 		t.Errorf("expected a redirect to http://other.com, got %s", resp.Header.Get("Location"))
 	}
 
-	w = httptest.NewRecorder()
-	urlList.ServeHTTP(w, httptest.NewRequest("GET", "http://example.com/1", nil))
-	resp = w.Result()
+	resp = get("/1")
 	if resp.StatusCode != http.StatusNotFound {
 		t.Errorf("expected a 404, got %d (%s)", resp.StatusCode, resp.Status)
 	}
 
-	w = httptest.NewRecorder()
-	urlList.ServeHTTP(w, httptest.NewRequest("POST", "http://example.com/", strings.NewReader("http://foo.bar")))
-	resp = w.Result()
+	resp = post("http://foo.bar")
 	if resp.StatusCode != http.StatusCreated {
 		t.Errorf("expected a 203, got %d (%s)", resp.StatusCode, resp.Status)
 	}
 	body, _ := ioutil.ReadAll(resp.Body)
-	if string(body) != "1" {
+	if string(body) != "http://example.com/1" {
 		t.Errorf("expected 1, got %s", string(body))
 	}
 
-	w = httptest.NewRecorder()
-	urlList.ServeHTTP(w, httptest.NewRequest("GET", "http://example.com/1", nil))
-	resp = w.Result()
+	resp = get("/1")
 	if resp.StatusCode != http.StatusPermanentRedirect {
 		t.Errorf("expected a redirect, got %d (%s)", resp.StatusCode, resp.Status)
 	}
@@ -50,16 +60,14 @@ func TestServeHTTP(t *testing.T) {
 		t.Errorf("expected a redirect to http://foo.bar, got %s", resp.Header.Get("Location"))
 	}
 
-	w = httptest.NewRecorder()
+	w := httptest.NewRecorder()
 	urlList.ServeHTTP(w, httptest.NewRequest("POST", "http://example.com/", nil))
 	resp = w.Result()
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Errorf("expected a 400, got %d (%s)", resp.StatusCode, resp.Status)
 	}
 
-	w = httptest.NewRecorder()
-	urlList.ServeHTTP(w, httptest.NewRequest("POST", "http://example.com/", strings.NewReader("nonsense")))
-	resp = w.Result()
+	resp = post("nonsense")
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Errorf("expected a 400, got %d (%s)", resp.StatusCode, resp.Status)
 	}
@@ -72,16 +80,12 @@ func TestServeHTTP(t *testing.T) {
 	}
 
 	(*urlList)[0] = nil
-	w = httptest.NewRecorder()
-	urlList.ServeHTTP(w, httptest.NewRequest("GET", "http://example.com/0", nil))
-	resp = w.Result()
+	resp = get("/0")
 	if resp.StatusCode != http.StatusGone {
 		t.Errorf("expected a 410, got %d (%s)", resp.StatusCode, resp.Status)
 	}
 
-	w = httptest.NewRecorder()
-	urlList.ServeHTTP(w, httptest.NewRequest("GET", "http://example.com/", nil))
-	resp = w.Result()
+	resp = get("/")
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("expected a 200, got %d (%s)", resp.StatusCode, resp.Status)
 	}

@@ -1,6 +1,14 @@
 html {
-  margin: 2em;
+  margin: 0;
   text-align: center;
+  font-family: sans-serif;
+}
+
+main>form, main>.result {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
 }
 
 input[name=url], button[type=submit] {
@@ -8,4 +16,15 @@ input[name=url], button[type=submit] {
   display: block;
   text-align: center;
   margin: 1em auto;
+  padding: 1em;
+  border: 1px solid rgba(0,0,0,0.1);
+}
+
+footer {
+  color: rgba(0,0,0,0.5);
+  font-size: small;
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
 }
