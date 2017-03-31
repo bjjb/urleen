@@ -1,0 +1,11 @@
+html {
+  margin: 2em;
+  text-align: center;
+}
+
+input[name=url], button[type=submit] {
+  font-size: large;
+  display: block;
+  text-align: center;
+  margin: 1em auto;
+}
