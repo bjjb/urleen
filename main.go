@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
@@ -38,22 +39,31 @@ func main() {
 func (u *urlList) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case r.Method == http.MethodPost:
-		r.ParseForm()
-		x := r.Form.Get("url")
-		uri, err := url.Parse(x)
-		if err != nil || uri.Host == "" && uri.Scheme == "" {
-			http.Error(w, "URL is not valid", http.StatusBadRequest)
+		inputURI := ""
+		if r.Header.Get("Content-Type") != "application/json" {
+			http.Error(w, "try application/json", http.StatusUnsupportedMediaType)
 			return
 		}
 		if len(*u) > (1<<32 - 2) {
 			http.Error(w, "URL list is full", http.StatusInsufficientStorage)
 			return
 		}
+		if err := json.NewDecoder(r.Body).Decode(&inputURI); err != nil {
+			log.Printf("error decoding body: %s", err)
+			http.Error(w, "failed to decode JSON", http.StatusInternalServerError)
+			return
+		}
+		uri, err := url.Parse(inputURI)
+		if err != nil || uri.Host == "" && uri.Scheme == "" {
+			http.Error(w, "URL is not valid", http.StatusBadRequest)
+			return
+		}
 		id := base62.Encode(uint64(len(*u)))
-		*u = append(*u, []byte(x))
+		*u = append(*u, []byte(inputURI))
+		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
-		location := url.URL{Scheme: r.URL.Scheme, Opaque: r.URL.Opaque, User: r.URL.User, Host: r.URL.Host, Path: id}
-		fmt.Fprintf(w, "%s", location.String())
+		log.Printf("%s → %s", id, uri.String())
+		fmt.Fprintf(w, "%q", id)
 	case r.Method == http.MethodGet:
 		if re.MatchString(r.URL.Path) {
 			i := int(base62.Decode(r.URL.Path[1:]))
@@ -67,6 +77,7 @@ func (u *urlList) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			http.Redirect(w, r, string(url), http.StatusPermanentRedirect)
+			log.Printf("%s → %s", r.URL.String(), string(url))
 			return
 		}
 		staticHandler.ServeHTTP(w, r)

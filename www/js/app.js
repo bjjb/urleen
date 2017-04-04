@@ -1,29 +1,27 @@
-// register service worker, if supported
-if ('serviceWorker' in navigator) {
-  self.addEventListener('load', event => {
-    navigator.serviceWorker.register('/sw.js').then(registration => {
-      console.log("Service worker registered; scope: %s", registration.scope)
-    }).catch(err => {
-      console.error("Service worker registration failed: %s", err)
+self.addEventListener('load', event => {
+  var main = document.querySelector("main")
+  var input = main.querySelector("#input")
+  var output = main.querySelector("#output")
+  var result = output.querySelector("#result")
+  var urlInput = input.querySelector('input[type="url"]')
+  input.querySelector("form").addEventListener('submit', event => {
+    event.preventDefault()
+    var form = event.target
+    fetch(form.action, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(form.url.value)
+    }).then(response => response.json()).then(id => {
+      result.href = result.innerHTML = form.action + id
+      input.hidden = true
+      output.hidden = false
+      document.getSelection().selectAllChildren(result)
     })
   })
-}
-
-self.addEventListener('load', event => {
-  document.querySelector("main form").addEventListener('submit', event => {
-    event.preventDefault()
-    if (self.fetch) {
-      form = new FormData(event.target)
-      fetch(event.target.action, {
-        method: 'POST',
-        headers: { 'Content-Type': event.target.enctype },
-        body: "url=" + encodeURI(event.target['url'].value)
-      }).then(response => {
-        response = response.clone()
-        console.debug(response.clone())
-        response.text().then(text => console.debug(response.url + text))
-      })
-    }
+  output.querySelector('#return').addEventListener('click', event => {
+    output.hidden = true
+    input.hidden = false
+    urlInput.value = ''
+    urlInput.focus()
   })
-  console.debug("Page loaded")
 })

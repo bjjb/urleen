@@ -2,16 +2,17 @@ html {
   margin: 0;
   text-align: center;
   font-family: sans-serif;
+  color: rgba(0,0,0,0.5);
 }
 
-main>form, main>.result {
+main {
   position: absolute;
-  left: 50%;
   top: 50%;
+  left: 50%;
   transform: translate(-50%, -50%);
 }
 
-input[name=url], button[type=submit] {
+input, button, #result {
   font-size: large;
   display: block;
   text-align: center;

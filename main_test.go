@@ -5,7 +5,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"regexp"
 	"strings"
 	"testing"
@@ -16,9 +15,9 @@ func TestServeHTTP(t *testing.T) {
 
 	post := func(u string) *http.Response {
 		w := httptest.NewRecorder()
-		body := strings.NewReader(url.Values{"url": []string{u}}.Encode())
+		body := strings.NewReader(fmt.Sprintf("%q", u))
 		r := httptest.NewRequest("POST", "http://example.com/", body)
-		r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		r.Header.Set("Content-Type", "application/json")
 		urlList.ServeHTTP(w, r)
 		return w.Result()
 	}
@@ -48,7 +47,7 @@ func TestServeHTTP(t *testing.T) {
 		t.Errorf("expected a 203, got %d (%s)", resp.StatusCode, resp.Status)
 	}
 	body, _ := ioutil.ReadAll(resp.Body)
-	if string(body) != "http://example.com/1" {
+	if string(body) != "1" {
 		t.Errorf("expected 1, got %s", string(body))
 	}
 
@@ -63,8 +62,8 @@ func TestServeHTTP(t *testing.T) {
 	w := httptest.NewRecorder()
 	urlList.ServeHTTP(w, httptest.NewRequest("POST", "http://example.com/", nil))
 	resp = w.Result()
-	if resp.StatusCode != http.StatusBadRequest {
-		t.Errorf("expected a 400, got %d (%s)", resp.StatusCode, resp.Status)
+	if resp.StatusCode != http.StatusUnsupportedMediaType {
+		t.Errorf("expected a 415, got %d (%s)", resp.StatusCode, resp.Status)
 	}
 
 	resp = post("nonsense")
