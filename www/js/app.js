@@ -3,7 +3,7 @@ self.addEventListener('load', event => {
   var input = main.querySelector("#input")
   var output = main.querySelector("#output")
   var result = output.querySelector("#result")
-  var urlInput = input.querySelector('input[type="url"]')
+  var urlInput = input.querySelector('input[name="url"]')
   input.querySelector("form").addEventListener('submit', event => {
     event.preventDefault()
     var form = event.target
