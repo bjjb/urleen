@@ -18,10 +18,16 @@ self.addEventListener('load', event => {
       document.getSelection().selectAllChildren(result)
     })
   })
-  output.querySelector('#return').addEventListener('click', event => {
+  document.getElementById('return').addEventListener('click', event => {
     output.hidden = true
     input.hidden = false
     urlInput.value = ''
     urlInput.focus()
+  })
+  document.getElementById('paste').addEventListener('click', event => {
+    document.execCommand('paste') // doesn't seem to work, at least in FF
+  })
+  document.getElementById('copy').addEventListener('click', event => {
+    document.execCommand('copy')
   })
 })

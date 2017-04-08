@@ -17,14 +17,17 @@
             Type/paste in the URL
           </label>
           <input type="url" name="url" id="url-input" required autofocus
-            placeholder="https://www.example.com">
-          <button type="submit">Squish</button>
+            placeholder="https://example.com">
+          <button id="paste" hidden><i class="fa fa-clipboard"></i></button>
+          <button type="submit" id="go"><i class="fa fa-magic"></i></button>
         </form>
       </div>
       <div id="output" hidden>
         <a id="result"></a>
-        <button id="return">OK</button>
+        <button id="copy"><i class="fa fa-clone"></i></button>
+        <button id="return"><i class="fa fa-arrow-circle-left"></i></button>
       </div>
+      <div id="notification"></div>
     </main>
     <footer>
       <p class="copyright">© 2017 JJ Buckley</p>

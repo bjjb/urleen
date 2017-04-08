@@ -1,3 +1,5 @@
+@import url("https://opensource.keycdn.com/fontawesome/4.7.0/font-awesome.min.css");
+
 html {
   margin: 0;
   text-align: center;
@@ -12,13 +14,18 @@ main {
   transform: translate(-50%, -50%);
 }
 
-input, button, #result {
+input, #result {
   font-size: large;
   display: block;
   text-align: center;
   margin: 1em auto;
   padding: 1em;
   border: 1px solid rgba(0,0,0,0.1);
+}
+
+button {
+  font-size: xx-large;
+  margin: 0.5em 0.2em;
 }
 
 footer {
