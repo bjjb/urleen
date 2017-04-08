@@ -1,1 +1,1 @@
-web: urleen -b :$PORT
+web: urleen -b :$PORT -r $REDIS_URL

@@ -5,83 +5,152 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"math"
 	"net/http"
 	"net/url"
+	"os"
 	"regexp"
+	"strconv"
 
-	"github.com/bjjb/urleen/base62"
+	"github.com/go-redis/redis"
+)
+
+const (
+	Base62          = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	DefaultBindAddr = ":8089"
+	DefaultWebRoot  = "www"
+	DefaultRedisURL = "redis://localhost:6379"
 )
 
 var (
-	bindAddr, webRoot string
-	staticHandler     http.Handler
-	re                = regexp.MustCompile("^/[a-zA-Z0-9]+$")
+	bindAddr, webRoot, redisURL string
+	base62                      = map[rune]int{}
+	pattern                     *regexp.Regexp
+	static                      http.Handler
+	redisClient                 *redis.Client
 )
 
-type urlList [][]byte
-
 func init() {
-	flag.StringVar(&bindAddr, "b", ":8089", "address/port to which to bind")
-	flag.StringVar(&webRoot, "w", "www", "directory from which to serve static files")
-	staticHandler = http.FileServer(http.Dir(webRoot))
+	for i, r := range Base62 {
+		base62[r] = i
+	}
+
+	pattern = regexp.MustCompile("^/[a-zA-Z0-9]+$")
+
+	var found bool
+	if bindAddr, found = os.LookupEnv("BIND_ADDR"); !found {
+		bindAddr = DefaultBindAddr
+	}
+	if webRoot, found = os.LookupEnv("WEB_ROOT"); !found {
+		webRoot = DefaultWebRoot
+	}
+	if redisURL, found = os.LookupEnv("REDIS_URL"); !found {
+		redisURL = DefaultRedisURL
+	}
+
+	flag.StringVar(&bindAddr, "b", bindAddr, "address/port to which to bind")
+	flag.StringVar(&redisURL, "r", redisURL, "redis host")
+	flag.StringVar(&webRoot, "w", webRoot, "directory holding static files")
+
 }
 
 func main() {
 	flag.Parse()
-	http.Handle("/", &urlList{})
+
+	static = http.FileServer(http.Dir(webRoot))
+
+	options, err := redis.ParseURL(redisURL)
+	if err != nil {
+		log.Fatal(err)
+	}
+	redisClient = redis.NewClient(options)
+
+	http.HandleFunc("/", handler)
+
 	fmt.Printf("urleen listening on %s\n", bindAddr)
 	if err := http.ListenAndServe(bindAddr, nil); err != nil {
 		log.Fatal(err)
 	}
 }
 
-// ServeHTTP implements the Handler for a urlList.
-func (u *urlList) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	switch {
-	case r.Method == http.MethodPost:
-		inputURI := ""
-		if r.Header.Get("Content-Type") != "application/json" {
-			http.Error(w, "try application/json", http.StatusUnsupportedMediaType)
-			return
-		}
-		if len(*u) > (1<<32 - 2) {
-			http.Error(w, "URL list is full", http.StatusInsufficientStorage)
-			return
-		}
-		if err := json.NewDecoder(r.Body).Decode(&inputURI); err != nil {
-			log.Printf("error decoding body: %s", err)
-			http.Error(w, "failed to decode JSON", http.StatusInternalServerError)
-			return
-		}
-		uri, err := url.Parse(inputURI)
-		if err != nil || uri.Host == "" && uri.Scheme == "" {
-			http.Error(w, "URL is not valid", http.StatusBadRequest)
-			return
-		}
-		id := base62.Encode(uint64(len(*u)))
-		*u = append(*u, []byte(inputURI))
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusCreated)
-		log.Printf("%s → %s", id, uri.String())
-		fmt.Fprintf(w, "%q", id)
-	case r.Method == http.MethodGet:
-		if re.MatchString(r.URL.Path) {
-			i := int(base62.Decode(r.URL.Path[1:]))
-			if i >= len(*u) {
-				http.NotFound(w, r)
-				return
-			}
-			url := (*u)[i]
-			if len(url) == 0 {
-				http.Error(w, "gone", http.StatusGone)
-				return
-			}
-			http.Redirect(w, r, string(url), http.StatusPermanentRedirect)
-			log.Printf("%s → %s", r.URL.String(), string(url))
-			return
-		}
-		staticHandler.ServeHTTP(w, r)
-	default:
-		http.Error(w, "GET short or POST long", http.StatusMethodNotAllowed)
+func redisOptions() *redis.Options {
+	options := &redis.Options{}
+	uri, err := url.Parse(redisURL)
+	if err != nil {
+		log.Fatalf("couldn't parse Redis URL %q; %q", redisURL, err)
 	}
+	options.Addr = uri.Host
+	if pw, set := uri.User.Password(); set {
+		options.Password = pw
+	}
+	if regexp.MustCompile(`^/\d+$`).MatchString(uri.Path) {
+		if db, err := strconv.Atoi(uri.Path[1:]); err == nil {
+			options.DB = db
+		}
+	}
+	return options
+}
+
+func handler(w http.ResponseWriter, r *http.Request) {
+	defer func() { _ = r.Body.Close() }()
+	switch r.Method {
+	case http.MethodGet:
+		switch {
+		case pattern.MatchString(r.URL.Path):
+			if location, found := getURL(r.URL.Path[1:]); found {
+				http.Redirect(w, r, location, http.StatusMovedPermanently)
+				return
+			}
+			http.NotFound(w, r)
+		default:
+			static.ServeHTTP(w, r)
+		}
+	case http.MethodPost:
+		var location string
+		if err := json.NewDecoder(r.Body).Decode(&location); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		id := putURL(location)
+		if err := json.NewEncoder(w).Encode(id); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+}
+
+func getURL(id string) (string, bool) {
+	location, err := redisClient.Get(id).Result()
+	if err == redis.Nil {
+		return "", false
+	}
+	return location, true
+}
+
+func putURL(location string) string {
+	id := encode62(uint64(redisClient.Incr("_").Val()))
+	redisClient.Set(id, location, 0)
+	return id
+}
+
+func decode62(s string) uint64 {
+	var x uint64
+	max := len(s) - 1
+	for i, c := range s {
+		x = x + uint64(base62[c]*int(math.Pow(float64(62), float64(max-i))))
+	}
+	return x
+}
+
+func encode62(i uint64) string {
+	if i == 0 {
+		return "0"
+	}
+	r := uint64(62)
+	b := []byte{}
+	for i > 0 {
+		b = append([]byte{Base62[i%r]}, b...)
+		i /= r
+	}
+	return string(b)
 }
