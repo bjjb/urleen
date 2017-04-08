@@ -39,5 +39,9 @@
 			"revisionTime": "2017-04-08T06:35:56Z"
 		}
 	],
-	"rootPath": "github.com/bjjb/urleen"
+	"rootPath": "github.com/bjjb/urleen",
+	"heroku": {
+		"install": ["."],
+		"goVersion": "go1.8"
+	}
 }
