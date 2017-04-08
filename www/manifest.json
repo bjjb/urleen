@@ -1,0 +1,9 @@
+{
+  "short_name": "URLín",
+  "name": "URLín, a URL squisher",
+  "start_url": "/",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "display": "standalone",
+  "orientation": "portrait"
+}

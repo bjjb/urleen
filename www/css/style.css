@@ -14,18 +14,32 @@ main {
   transform: translate(-50%, -50%);
 }
 
-input, #result {
+input, output {
   font-size: large;
   display: block;
   text-align: center;
   margin: 1em auto;
   padding: 1em;
-  border: 1px solid rgba(0,0,0,0.1);
+  border: 0;
+  border-bottom: 1px solid rgba(0,0,0,0.1);
 }
 
 button {
+  transition: color 0.4s;
+  color: rgba(0,0,0,0.5);
   font-size: xx-large;
-  margin: 0.5em 0.2em;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background-color: transparent;
+}
+button:active {
+  color: black;
+}
+
+button i {
+  margin: 0.5em;
 }
 
 footer {
