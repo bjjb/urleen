@@ -1,0 +1,37 @@
+{
+	"ImportPath": "github.com/bjjb/urleen",
+	"GoVersion": "go1.8",
+	"GodepVersion": "v79",
+	"Deps": [
+		{
+			"ImportPath": "github.com/go-redis/redis",
+			"Comment": "v6.0.0-9-gdd76391",
+			"Rev": "dd76391eb986c2ea0aba41e9edde61ff7e0d4b28"
+		},
+		{
+			"ImportPath": "github.com/go-redis/redis/internal",
+			"Comment": "v6.0.0-9-gdd76391",
+			"Rev": "dd76391eb986c2ea0aba41e9edde61ff7e0d4b28"
+		},
+		{
+			"ImportPath": "github.com/go-redis/redis/internal/consistenthash",
+			"Comment": "v6.0.0-9-gdd76391",
+			"Rev": "dd76391eb986c2ea0aba41e9edde61ff7e0d4b28"
+		},
+		{
+			"ImportPath": "github.com/go-redis/redis/internal/hashtag",
+			"Comment": "v6.0.0-9-gdd76391",
+			"Rev": "dd76391eb986c2ea0aba41e9edde61ff7e0d4b28"
+		},
+		{
+			"ImportPath": "github.com/go-redis/redis/internal/pool",
+			"Comment": "v6.0.0-9-gdd76391",
+			"Rev": "dd76391eb986c2ea0aba41e9edde61ff7e0d4b28"
+		},
+		{
+			"ImportPath": "github.com/go-redis/redis/internal/proto",
+			"Comment": "v6.0.0-9-gdd76391",
+			"Rev": "dd76391eb986c2ea0aba41e9edde61ff7e0d4b28"
+		}
+	]
+}
