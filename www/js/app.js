@@ -1,33 +1,46 @@
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(console.error)
+}
+
 self.addEventListener('load', event => {
-  var main = document.querySelector("main")
-  var input = main.querySelector("#input")
-  var output = main.querySelector("#output")
-  var result = output.querySelector("#result")
-  var urlInput = input.querySelector('input[name="url"]')
-  input.querySelector("form").addEventListener('submit', event => {
+  var back    = document.getElementById('back')
+  var copy    = document.getElementById('copy')
+  var form    = document.getElementById('form')
+  var input   = document.getElementById('input')
+  var output  = document.getElementById('output')
+  var result  = document.getElementById('result')
+  var url     = document.getElementById('url')
+
+  form.addEventListener('submit', event => {
     event.preventDefault()
-    var form = event.target
     fetch(form.action, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form.url.value)
+      body: JSON.stringify(url.value)
     }).then(response => response.json()).then(id => {
-      result.href = result.innerHTML = form.action + id
+      result.innerHTML = form.action + id
       input.hidden = true
       output.hidden = false
       document.getSelection().selectAllChildren(result)
     })
   })
-  document.getElementById('return').addEventListener('click', event => {
+
+  back.addEventListener('click', event => {
     output.hidden = true
     input.hidden = false
-    urlInput.value = ''
-    urlInput.focus()
+    copy.classList.remove('ok', 'error')
+    url.value = ''
+    url.focus()
   })
-  document.getElementById('paste').addEventListener('click', event => {
-    document.execCommand('paste') // doesn't seem to work, at least in FF
+
+  copy.addEventListener('click', event => {
+    if (!document.execCommand('copy')) {
+      copy.classList.add('error')
+    }
   })
-  document.getElementById('copy').addEventListener('click', event => {
-    document.execCommand('copy')
+
+  document.addEventListener('copy', event => {
+    copy.classList.remove('error')
+    copy.classList.add('ok')
   })
 })

@@ -14,25 +14,26 @@
     </header>
     <main>
       <div id="input">
-        <form action="/" method="POST">
-          <label id="url-label" class="instructions" for="url-input">
-            Type/paste in the URL
+        <form id='form' action="/" method="POST">
+          <label class="instructions" for="url">
+            Type/paste the long URL
           </label>
-          <input type="url" name="url" id="url-input" required autofocus
+          <input type="url" name="url" id="url" required autofocus
             placeholder="https://example.com">
-          <button id="paste" hidden><i class="fa fa-clipboard"></i></button>
-          <button type="submit" id="go"><i class="fa fa-magic"></i></button>
+          <button type="submit" id="go" title="Squish">🔗</button>
         </form>
       </div>
       <div id="output" hidden>
+        <label for="result">Copy the short URL</label>
         <output id="result"></output>
-        <button id="copy"><i class="fa fa-clone"></i></button>
-        <button id="return"><i class="fa fa-arrow-circle-left"></i></button>
+        <button id="copy" title="Copy short URL to the clipboard">📋</button>
+        <button id="back" title="Go back and enter a new URL">🔙</button>
       </div>
-      <div id="notification"></div>
     </main>
     <footer>
-      <p class="copyright">© 2017 JJ Buckley</p>
+      <p class="copyright">
+        © 2017 <a href="//bjjbuckley.com" title="JJ Buckley">bjjb</a>
+      </p>
     </footer>
     <script src="/js/app.js"></script>
   </body>
