@@ -1,8 +1,13 @@
-FROM golang:alpine
+FROM golang AS builder
 LABEL maintainer "jj@bjjb.org"
-ADD . src/github.com/bjjb/urleen
-RUN go build github.com/bjjb/urleen
-RUN go install github.com/bjjb/urleen
-EXPOSE 8089
-WORKDIR src/github.com/bjjb/urleen
-CMD ["urleen"]
+WORKDIR src/urleen
+COPY . .
+ENV GOOS=linux
+ENV CGO_ENABLED=0
+RUN go build -i
+FROM scratch
+WORKDIR /
+COPY www www
+COPY --from=builder /go/src/urleen/urleen /urleen
+EXPOSE 9000
+CMD ["/urleen"]

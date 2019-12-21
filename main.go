@@ -5,152 +5,142 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"math"
 	"net/http"
-	"net/url"
 	"os"
 	"regexp"
-	"strconv"
+	"sync"
 
+	"github.com/bjjb/urleen/base62"
 	"github.com/go-redis/redis"
 )
 
-const (
-	Base62          = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-	DefaultBindAddr = ":8089"
-	DefaultWebRoot  = "www"
-	DefaultRedisURL = "redis://localhost:6379"
-)
-
-var (
-	bindAddr, webRoot, redisURL string
-	base62                      = map[rune]int{}
-	pattern                     *regexp.Regexp
-	static                      http.Handler
-	redisClient                 *redis.Client
-)
-
-func init() {
-	for i, r := range Base62 {
-		base62[r] = i
-	}
-
-	pattern = regexp.MustCompile("^/[a-zA-Z0-9]+$")
-
-	var found bool
-	if bindAddr, found = os.LookupEnv("BIND_ADDR"); !found {
-		bindAddr = DefaultBindAddr
-	}
-	if webRoot, found = os.LookupEnv("WEB_ROOT"); !found {
-		webRoot = DefaultWebRoot
-	}
-	if redisURL, found = os.LookupEnv("REDIS_URL"); !found {
-		redisURL = DefaultRedisURL
-	}
-
-	flag.StringVar(&bindAddr, "b", bindAddr, "address/port to which to bind")
-	flag.StringVar(&redisURL, "r", redisURL, "redis host")
-	flag.StringVar(&webRoot, "w", webRoot, "directory holding static files")
-
+type store interface {
+	put(string) string
+	get(string) string
 }
 
-func main() {
-	flag.Parse()
-
-	static = http.FileServer(http.Dir(webRoot))
-
-	options, err := redis.ParseURL(redisURL)
-	if err != nil {
-		log.Fatal(err)
-	}
-	redisClient = redis.NewClient(options)
-
-	http.HandleFunc("/", handler)
-
-	fmt.Printf("urleen listening on %s\n", bindAddr)
-	if err := http.ListenAndServe(bindAddr, nil); err != nil {
-		log.Fatal(err)
-	}
+type redisStore struct {
+	client  *redis.Client
+	counter string
 }
 
-func redisOptions() *redis.Options {
-	options := &redis.Options{}
-	uri, err := url.Parse(redisURL)
-	if err != nil {
-		log.Fatalf("couldn't parse Redis URL %q; %q", redisURL, err)
-	}
-	options.Addr = uri.Host
-	if pw, set := uri.User.Password(); set {
-		options.Password = pw
-	}
-	if regexp.MustCompile(`^/\d+$`).MatchString(uri.Path) {
-		if db, err := strconv.Atoi(uri.Path[1:]); err == nil {
-			options.DB = db
-		}
-	}
-	return options
+func (r *redisStore) put(s string) string {
+	id := base62.Encode(uint64(r.client.Incr(r.counter).Val()))
+	r.client.Set(id, s, 0)
+	return id
 }
 
-func handler(w http.ResponseWriter, r *http.Request) {
-	defer func() { _ = r.Body.Close() }()
-	switch r.Method {
-	case http.MethodGet:
-		switch {
-		case pattern.MatchString(r.URL.Path):
-			if location, found := getURL(r.URL.Path[1:]); found {
+func (r *redisStore) get(id string) string {
+	s, _ := r.client.Get(id).Result()
+	return s
+}
+
+type mapStore struct {
+	counter uint64
+	data    map[string]string
+	mutex   *sync.Mutex
+}
+
+func (m *mapStore) put(s string) string {
+	m.mutex.Lock()
+	id := base62.Encode(m.counter)
+	m.counter++
+	m.mutex.Unlock()
+	m.data[id] = s
+	return id
+}
+
+func (m *mapStore) get(id string) string {
+	return m.data[id]
+}
+
+type handler struct {
+	www   http.Handler
+	store store
+}
+
+func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	switch {
+	case r.Method == http.MethodGet || r.Method == http.MethodHead:
+		if h.store != nil && pattern.MatchString(r.URL.Path) {
+			if location := h.store.get(r.URL.Path[1:]); location != "" {
 				http.Redirect(w, r, location, http.StatusMovedPermanently)
 				return
 			}
 			http.NotFound(w, r)
-		default:
-			static.ServeHTTP(w, r)
+			return
 		}
-	case http.MethodPost:
+		if h.www != nil {
+			h.www.ServeHTTP(w, r)
+			return
+		}
+	case r.Method == http.MethodPost && h.store != nil:
 		var location string
 		if err := json.NewDecoder(r.Body).Decode(&location); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		id := putURL(location)
+		id := h.store.put(location)
 		if err := json.NewEncoder(w).Encode(id); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+	default:
+		text := http.StatusText(http.StatusMethodNotAllowed)
+		http.Error(w, text, http.StatusMethodNotAllowed)
 	}
 }
 
-func getURL(id string) (string, bool) {
-	location, err := redisClient.Get(id).Result()
-	if err == redis.Nil {
-		return "", false
+var pattern = regexp.MustCompile("^/[a-zA-Z0-9]+$")
+
+func main() {
+	wr := getEnv("WEB_ROOT", "www")
+	ba := getEnv("BIND_ADDR", ":9000")
+	ru := getEnv("REDIS_URL", "redis://localhost:6379")
+	rc := getEnv("REDIS_COUNTER", "_")
+
+	flag.StringVar(&ba, "b", ba, "address to which to bind")
+	flag.StringVar(&ru, "r", ru, "redis host")
+	flag.StringVar(&rc, "C", rc, "redis counter")
+	flag.StringVar(&wr, "w", wr, "directory holding the app")
+	flag.Parse()
+
+	h := &handler{}
+
+	if fileExists(wr) {
+		h.www = http.FileServer(http.Dir(wr))
+	} else {
+		log.Printf("no such file or directory: %s (api only)", wr)
 	}
-	return location, true
+
+	if options, err := redis.ParseURL(ru); err == nil {
+		h.store = &redisStore{
+			client:  redis.NewClient(options),
+			counter: rc,
+		}
+	} else {
+		log.Printf("failed to open redis at %s: %s", ru, err)
+	}
+
+	if h.store != nil || h.www != nil {
+		http.Handle("/", h)
+		fmt.Printf("urleen listening on %s\n", ba)
+		if err := http.ListenAndServe(ba, nil); err != nil {
+			log.Fatal(err)
+		}
+	} else {
+		log.Print("nothing to serve, quitting.")
+	}
 }
 
-func putURL(location string) string {
-	id := encode62(uint64(redisClient.Incr("_").Val()))
-	redisClient.Set(id, location, 0)
-	return id
+func getEnv(name, fallback string) string {
+	if val := os.Getenv(name); val != "" {
+		return val
+	}
+	return fallback
 }
 
-func decode62(s string) uint64 {
-	var x uint64
-	max := len(s) - 1
-	for i, c := range s {
-		x = x + uint64(base62[c]*int(math.Pow(float64(62), float64(max-i))))
-	}
-	return x
-}
-
-func encode62(i uint64) string {
-	if i == 0 {
-		return "0"
-	}
-	r := uint64(62)
-	b := []byte{}
-	for i > 0 {
-		b = append([]byte{Base62[i%r]}, b...)
-		i /= r
-	}
-	return string(b)
+func fileExists(path string) bool {
+	info, _ := os.Stat(path)
+	return info != nil && info.IsDir()
 }
