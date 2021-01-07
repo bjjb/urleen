@@ -10,4 +10,4 @@ WORKDIR /
 COPY www /var/www
 COPY --from=builder /go/src/urleen/urleen /bin/urleen
 EXPOSE 9000
-CMD ["/bin/urleen", "-w", "/var/www"]
+CMD ["/bin/urleen", "-w", "/var/www", "-b", ":$PORT"]
