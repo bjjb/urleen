@@ -1,5 +1,5 @@
 {
   "name": "A URL squisher app",
   "description": "A small Go web-app to squish URLs",
-  "stack": "container"
+  "stack": "heroku-20"
 }
