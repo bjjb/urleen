@@ -1,5 +1,5 @@
-.PHONY: docker-image docker-push
-docker-image:
+.PHONY: build push
+build:
 	docker build -t bjjb/urleen .
-docker-push:
+push:
 	docker push bjjb/urleen
