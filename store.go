@@ -60,6 +60,7 @@ type mapStore struct {
 }
 
 func (m *mapStore) put(id, s string) string {
+	m.open()
 	m.mutex.Lock()
 	if id == "" {
 		id = base62.Encode(m.counter)
@@ -71,5 +72,15 @@ func (m *mapStore) put(id, s string) string {
 }
 
 func (m *mapStore) get(id string) string {
+	m.open()
 	return m.data[id]
+}
+
+func (m *mapStore) open() {
+	if m.mutex == nil {
+		m.mutex = new(sync.Mutex)
+	}
+	if m.data == nil {
+		m.data = make(map[string]string)
+	}
 }
