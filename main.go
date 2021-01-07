@@ -1,3 +1,4 @@
+// +heroku goVersion go1.14
 package main
 
 import (
@@ -27,7 +28,7 @@ func parse(args ...string) (o struct {
 	fs.StringVar(&o.ba, "b", getEnv("BIND_ADDR", ":"+defaultPort), "address to which to bind")
 	fs.StringVar(&o.ru, "r", getEnv("REDIS_URL", "redis://localhost:6379"), "redis host")
 	fs.StringVar(&o.rc, "C", getEnv("REDIS_COUNTER", "_"), "redis counter")
-	fs.StringVar(&o.wr, "w", getEnv("WEB_ROOT", ""), "serve static files from this dir")
+	fs.StringVar(&o.wr, "w", getEnv("WEB_ROOT", "public"), "serve static files from this dir")
 	fs.BoolVar(&o.x, "X", getEnv("ALLOW_CORS", "") == "true", "allow cross-origin requests")
 	fs.BoolVar(&o.v, "v", false, "print the version number and exit")
 	fs.BoolVar(&o.h, "h", false, "print help and exit")
