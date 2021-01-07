@@ -9,5 +9,5 @@ FROM scratch
 WORKDIR /
 COPY www /var/www
 COPY --from=builder /go/src/urleen/urleen /bin/urleen
-EXPOSE 9000
-ENTRYPOINT ["/bin/urleen", "-w", "/var/www", "-b", ":$PORT"]
+ENV WEB_ROOT=/var/www
+ENTRYPOINT ["/bin/urleen"]

@@ -16,6 +16,7 @@ const version = "0.2.0"
 
 var stdout, stderr io.Writer = os.Stdout, os.Stderr
 var exit func(int) = os.Exit
+var defaultPort string = "9000"
 
 func parse(args ...string) (o struct {
 	ba, ru, rc, wr string
@@ -23,7 +24,7 @@ func parse(args ...string) (o struct {
 }) {
 	fs := flag.NewFlagSet(name, flag.ExitOnError)
 
-	fs.StringVar(&o.ba, "b", getEnv("BIND_ADDR", ":9000"), "address to which to bind")
+	fs.StringVar(&o.ba, "b", getEnv("BIND_ADDR", ":"+defaultPort), "address to which to bind")
 	fs.StringVar(&o.ru, "r", getEnv("REDIS_URL", "redis://localhost:6379"), "redis host")
 	fs.StringVar(&o.rc, "C", getEnv("REDIS_COUNTER", "_"), "redis counter")
 	fs.StringVar(&o.wr, "w", getEnv("WEB_ROOT", ""), "serve static files from this dir")
@@ -96,4 +97,10 @@ func dirExists(path string) bool {
 		log.Printf("%s is not a readable directrory", path)
 	}
 	return false
+}
+
+func init() {
+	if port, found := os.LookupEnv("PORT"); found {
+		defaultPort = port
+	}
 }
