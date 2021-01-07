@@ -1,3 +1,4 @@
+// +heroku goVersion go1.14
 package main
 
 import (
