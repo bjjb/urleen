@@ -26,7 +26,7 @@ func parse(args ...string) (o struct {
 	fs := flag.NewFlagSet(name, flag.ExitOnError)
 
 	fs.StringVar(&o.ba, "b", getEnv("BIND_ADDR", ":"+defaultPort), "address to which to bind")
-	fs.StringVar(&o.ru, "r", getEnv("REDIS_URL", "redis://localhost:6379"), "redis host")
+	fs.StringVar(&o.ru, "r", getEnv("REDIS_URL", ""), "redis host")
 	fs.StringVar(&o.rc, "C", getEnv("REDIS_COUNTER", "_"), "redis counter")
 	fs.StringVar(&o.wr, "w", getEnv("WEB_ROOT", "public"), "serve static files from this dir")
 	fs.BoolVar(&o.x, "X", getEnv("ALLOW_CORS", "") == "true", "allow cross-origin requests")
@@ -55,16 +55,24 @@ func main() {
 		return
 	}
 
-	r := &redisStore{
-		url:     opts.ru,
-		counter: opts.rc,
+	h := new(handler)
+
+	if opts.ru != "" && opts.rc != "" {
+		r := &redisStore{
+			url:     opts.ru,
+			counter: opts.rc,
+		}
+
+		if err := r.ping(); err != nil {
+			log.Fatalf("failed to open redis at %s: %s", opts.ru, err)
+		}
+
+		h.store = r
 	}
 
-	if err := r.ping(); err != nil {
-		log.Fatalf("failed to open redis at %s: %s", opts.ru, err)
+	if h.store == nil {
+		h.store = new(mapStore)
 	}
-
-	h := &handler{store: r}
 
 	if dirExists(opts.wr) {
 		h.www = http.FileServer(http.Dir(opts.wr))
