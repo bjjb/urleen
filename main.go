@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -11,7 +12,7 @@ import (
 	"sync"
 
 	"github.com/bjjb/urleen/base62"
-	"github.com/go-redis/redis"
+	"github.com/go-redis/redis/v8"
 )
 
 type store interface {
@@ -25,13 +26,15 @@ type redisStore struct {
 }
 
 func (r *redisStore) put(s string) string {
-	id := base62.Encode(uint64(r.client.Incr(r.counter).Val()))
-	r.client.Set(id, s, 0)
+	ctx := context.Background()
+	id := base62.Encode(uint64(r.client.Incr(ctx, r.counter).Val()))
+	r.client.Set(ctx, id, s, 0)
 	return id
 }
 
 func (r *redisStore) get(id string) string {
-	s, _ := r.client.Get(id).Result()
+	ctx := context.Background()
+	s, _ := r.client.Get(ctx, id).Result()
 	return s
 }
 
