@@ -8,6 +8,6 @@ RUN go build -i
 FROM scratch
 WORKDIR /
 COPY www www
-COPY --from=builder /go/src/urleen/urleen /urleen
+COPY --from=builder /go/src/urleen/urleen /bin/urleen
 EXPOSE 9000
-CMD ["/urleen"]
+CMD ["/bin/urleen"]

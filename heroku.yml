@@ -2,4 +2,4 @@ build:
   docker:
     web: Dockerfile
 run:
-  web: urleen -b :$PORT -w public -X
+  web: /bin/urleen -b :$PORT -w public -X
